@@ -156,11 +156,11 @@ class TestListPlaces(TestCase):
     def test_list_returns_all_places(self):
         response = self.client.get('/api/places/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data['count'], 2)
 
     def test_list_contains_expected_fields(self):
         response = self.client.get('/api/places/')
-        place = response.data[0]
+        place = response.data['results'][0]
         self.assertEqual(
             set(place.keys()),
             {'id', 'name', 'city', 'country', 'description', 'image', 'created_at'},
@@ -168,14 +168,14 @@ class TestListPlaces(TestCase):
 
     def test_list_returns_newest_first(self):
         response = self.client.get('/api/places/')
-        self.assertEqual(response.data[0]['name'], 'Hyde Park')
-        self.assertEqual(response.data[1]['name'], 'Café Lumière')
+        self.assertEqual(response.data['results'][0]['name'], 'Hyde Park')
+        self.assertEqual(response.data['results'][1]['name'], 'Café Lumière')
 
     def test_list_empty_database(self):
         Place.objects.all().delete()
         response = self.client.get('/api/places/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(response.data['count'], 0)
 
 
 class TestRetrievePlace(TestCase):
@@ -205,4 +205,172 @@ class TestRetrievePlace(TestCase):
 
     def test_retrieve_nonexistent_place_returns_404(self):
         response = self.client.get('/api/places/9999/')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class TestPaginatePlaces(TestCase):
+    # Tests for paginated GET /api/places/
+
+    def setUp(self):
+        self.client = APIClient()
+        for i in range(15):
+            Place.objects.create(
+                name=f'Place {i}', city='City', country='Country', description='Desc',
+            )
+
+    def test_list_is_paginated(self):
+        response = self.client.get('/api/places/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('results', response.data)
+        self.assertIn('count', response.data)
+        self.assertEqual(response.data['count'], 15)
+
+    def test_page_size_is_10(self):
+        response = self.client.get('/api/places/')
+        self.assertEqual(len(response.data['results']), 10)
+
+    def test_second_page_returns_remaining(self):
+        response = self.client.get('/api/places/?page=2')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 5)
+
+    def test_pagination_has_next_link(self):
+        response = self.client.get('/api/places/')
+        self.assertIsNotNone(response.data['next'])
+
+    def test_pagination_first_page_has_no_previous(self):
+        response = self.client.get('/api/places/')
+        self.assertIsNone(response.data['previous'])
+
+    def test_invalid_page_returns_404(self):
+        response = self.client.get('/api/places/?page=999')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class TestUpdatePlace(TestCase):
+    # Tests for PUT and PATCH /api/places/<id>/
+
+    def setUp(self):
+        self.client = APIClient()
+        self.place = Place.objects.create(
+            name='Café Lumière',
+            city='Paris',
+            country='France',
+            description='A cozy café near the Seine.',
+        )
+        self.valid_data = {
+            'name': 'Café Lumière Updated',
+            'city': 'Lyon',
+            'country': 'France',
+            'description': 'Now in Lyon.',
+        }
+
+    # PUT (full update)
+
+    def test_put_with_valid_data(self):
+        response = self.client.put(
+            f'/api/places/{self.place.id}/', self.valid_data, format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.place.refresh_from_db()
+        self.assertEqual(self.place.name, 'Café Lumière Updated')
+        self.assertEqual(self.place.city, 'Lyon')
+
+    def test_put_missing_required_field_fails(self):
+        data = {**self.valid_data}
+        del data['name']
+        response = self.client.put(
+            f'/api/places/{self.place.id}/', data, format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('name', response.data)
+
+    def test_put_nonexistent_place_returns_404(self):
+        response = self.client.put('/api/places/9999/', self.valid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    # PATCH (partial update)
+
+    def test_patch_single_field(self):
+        response = self.client.patch(
+            f'/api/places/{self.place.id}/', {'name': 'New Name'}, format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.place.refresh_from_db()
+        self.assertEqual(self.place.name, 'New Name')
+        self.assertEqual(self.place.city, 'Paris')
+
+    def test_patch_blank_name_fails(self):
+        response = self.client.patch(
+            f'/api/places/{self.place.id}/', {'name': ''}, format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('name', response.data)
+
+    def test_patch_whitespace_only_name_fails(self):
+        response = self.client.patch(
+            f'/api/places/{self.place.id}/', {'name': '   '}, format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('name', response.data)
+
+    def test_patch_invalid_image_url_fails(self):
+        response = self.client.patch(
+            f'/api/places/{self.place.id}/', {'image': 'not-a-url'}, format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('image', response.data)
+
+    def test_patch_nonexistent_place_returns_404(self):
+        response = self.client.patch('/api/places/9999/', {'name': 'X'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    # Read-only protection on update
+
+    def test_put_cannot_override_id(self):
+        response = self.client.put(
+            f'/api/places/{self.place.id}/',
+            {**self.valid_data, 'id': 9999},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['id'], self.place.id)
+
+    def test_patch_cannot_override_created_at(self):
+        response = self.client.patch(
+            f'/api/places/{self.place.id}/',
+            {'created_at': '2000-01-01T00:00:00Z'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotEqual(response.data['created_at'], '2000-01-01T00:00:00Z')
+
+
+class TestDeletePlace(TestCase):
+    # Tests for DELETE /api/places/<id>/
+
+    def setUp(self):
+        self.client = APIClient()
+        self.place = Place.objects.create(
+            name='Café Lumière',
+            city='Paris',
+            country='France',
+            description='A cozy café near the Seine.',
+        )
+
+    def test_delete_returns_204(self):
+        response = self.client.delete(f'/api/places/{self.place.id}/')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_delete_removes_from_database(self):
+        self.client.delete(f'/api/places/{self.place.id}/')
+        self.assertEqual(Place.objects.count(), 0)
+
+    def test_delete_nonexistent_place_returns_404(self):
+        response = self.client.delete('/api/places/9999/')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_delete_twice_returns_404(self):
+        self.client.delete(f'/api/places/{self.place.id}/')
+        response = self.client.delete(f'/api/places/{self.place.id}/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

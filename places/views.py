@@ -8,6 +8,6 @@ class PlaceListCreateView(generics.ListCreateAPIView):
     serializer_class = PlaceSerializer
 
 
-class PlaceRetrieveView(generics.RetrieveAPIView):
+class PlaceRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Place.objects.all()
     serializer_class = PlaceSerializer
