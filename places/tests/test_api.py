@@ -374,3 +374,138 @@ class TestDeletePlace(TestCase):
         self.client.delete(f'/api/places/{self.place.id}/')
         response = self.client.delete(f'/api/places/{self.place.id}/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class TestUnicodePlaces(TestCase):
+    # Verify unicode and emoji are handled correctly
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_create_place_with_unicode_name(self):
+        data = {
+            'name': 'Café Résumé',
+            'city': 'Zürich',
+            'country': 'Österreich',
+            'description': 'A café with accented characters.',
+        }
+        response = self.client.post('/api/places/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], 'Café Résumé')
+
+    def test_create_place_with_emoji(self):
+        data = {
+            'name': 'Sunset Lounge 🌅',
+            'city': 'Paris 🇫🇷',
+            'country': 'France',
+            'description': 'Great vibes.',
+        }
+        response = self.client.post('/api/places/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], 'Sunset Lounge 🌅')
+
+
+class TestUniqueConstraint(TestCase):
+    # Duplicate (name, city) pairs should be rejected
+
+    def setUp(self):
+        self.client = APIClient()
+        self.data = {
+            'name': 'Café Lumière',
+            'city': 'Paris',
+            'country': 'France',
+            'description': 'A cozy café.',
+        }
+
+    def test_duplicate_name_and_city_rejected(self):
+        self.client.post('/api/places/', self.data, format='json')
+        response = self.client.post('/api/places/', self.data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_same_name_different_city_allowed(self):
+        self.client.post('/api/places/', self.data, format='json')
+        data = {**self.data, 'city': 'Lyon'}
+        response = self.client.post('/api/places/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+
+class TestDescriptionMaxLength(TestCase):
+    # Description should be capped at 2000 characters
+
+    def setUp(self):
+        self.client = APIClient()
+        self.base_data = {
+            'name': 'Test Place',
+            'city': 'London',
+            'country': 'UK',
+        }
+
+    def test_description_at_2000_chars_accepted(self):
+        data = {**self.base_data, 'description': 'A' * 2000}
+        response = self.client.post('/api/places/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_description_over_2000_chars_rejected(self):
+        data = {**self.base_data, 'description': 'A' * 2001}
+        response = self.client.post('/api/places/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('description', response.data)
+
+
+class TestImageUrlMaxLength(TestCase):
+    # Cloudinary URLs can exceed the default URLField max_length of 200
+
+    def setUp(self):
+        self.client = APIClient()
+        self.base_data = {
+            'name': 'Test Place',
+            'city': 'London',
+            'country': 'UK',
+            'description': 'A place.',
+        }
+
+    def test_long_cloudinary_url_accepted(self):
+        long_path = 'a' * 250
+        url = f'https://res.cloudinary.com/demo/image/upload/{long_path}.jpg'
+        data = {**self.base_data, 'image': url}
+        response = self.client.post('/api/places/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_image_url_over_500_chars_rejected(self):
+        long_path = 'a' * 460
+        url = f'https://res.cloudinary.com/demo/image/upload/{long_path}.jpg'
+        self.assertGreater(len(url), 500)
+        data = {**self.base_data, 'image': url}
+        response = self.client.post('/api/places/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('image', response.data)
+
+
+class TestFilterPlaces(TestCase):
+    # Filtering by city and country on the list endpoint
+
+    def setUp(self):
+        self.client = APIClient()
+        Place.objects.create(name='Café Lumière', city='Paris', country='France', description='A café.')
+        Place.objects.create(name='Le Marais', city='Paris', country='France', description='A district.')
+        Place.objects.create(name='Hyde Park', city='London', country='UK', description='A park.')
+
+    def test_filter_by_city(self):
+        response = self.client.get('/api/places/?city=Paris')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 2)
+
+    def test_filter_by_country(self):
+        response = self.client.get('/api/places/?country=UK')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+
+    def test_filter_by_city_and_country(self):
+        response = self.client.get('/api/places/?city=Paris&country=France')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 2)
+
+    def test_filter_no_match_returns_empty(self):
+        response = self.client.get('/api/places/?city=Tokyo')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 0)

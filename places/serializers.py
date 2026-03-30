@@ -22,3 +22,8 @@ class PlaceSerializer(serializers.ModelSerializer):
         if not value.strip():
             raise serializers.ValidationError('This field may not be blank.')
         return value
+
+    def validate_description(self, value):
+        if len(value) > 2000:
+            raise serializers.ValidationError('Ensure this field has no more than 2000 characters.')
+        return value

@@ -6,11 +6,12 @@ class Place(models.Model):
     city = models.CharField(max_length=255)
     country = models.CharField(max_length=255)
     description = models.TextField()
-    image = models.URLField(blank=True, default='')
+    image = models.URLField(max_length=500, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-created_at']
+        unique_together = [['name', 'city']]
 
     def __str__(self):
         return self.name

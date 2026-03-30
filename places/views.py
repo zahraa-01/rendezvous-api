@@ -6,6 +6,7 @@ from places.serializers import PlaceSerializer
 class PlaceListCreateView(generics.ListCreateAPIView):
     queryset = Place.objects.all()
     serializer_class = PlaceSerializer
+    filterset_fields = ['city', 'country']
 
 
 class PlaceRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
