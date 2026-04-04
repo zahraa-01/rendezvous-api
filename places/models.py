@@ -1,7 +1,12 @@
 from django.db import models
+from django.conf import settings
 
 
 class Place(models.Model):
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='places',
+        null=True, blank=True,
+    )
     name = models.CharField(max_length=255)
     city = models.CharField(max_length=255)
     country = models.CharField(max_length=255)
