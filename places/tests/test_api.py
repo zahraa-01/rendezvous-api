@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 from rest_framework import status
 from places.models import Place
@@ -9,6 +10,10 @@ class TestCreatePlace(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
+        self.client.force_authenticate(user=self.user)
         self.valid_data = {
             'name': 'Café Lumière',
             'city': 'Paris',
@@ -28,7 +33,7 @@ class TestCreatePlace(TestCase):
         response = self.client.post('/api/places/', self.valid_data, format='json')
         self.assertEqual(
             set(response.data.keys()),
-            {'id', 'name', 'city', 'country', 'description', 'image', 'created_at'},
+            {'id', 'owner', 'name', 'city', 'country', 'description', 'image', 'created_at'},
         )
 
     def test_create_place_with_valid_image_url(self):
@@ -146,11 +151,16 @@ class TestListPlaces(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
         self.place_a = Place.objects.create(
             name='Café Lumière', city='Paris', country='France', description='A café.',
+            owner=self.user,
         )
         self.place_b = Place.objects.create(
             name='Hyde Park', city='London', country='UK', description='A park.',
+            owner=self.user,
         )
 
     def test_list_returns_all_places(self):
@@ -163,7 +173,7 @@ class TestListPlaces(TestCase):
         place = response.data['results'][0]
         self.assertEqual(
             set(place.keys()),
-            {'id', 'name', 'city', 'country', 'description', 'image', 'created_at'},
+            {'id', 'owner', 'name', 'city', 'country', 'description', 'image', 'created_at'},
         )
 
     def test_list_returns_newest_first(self):
@@ -183,11 +193,15 @@ class TestRetrievePlace(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
         self.place = Place.objects.create(
             name='Café Lumière',
             city='Paris',
             country='France',
             description='A cozy café near the Seine.',
+            owner=self.user,
         )
 
     def test_retrieve_existing_place(self):
@@ -200,7 +214,7 @@ class TestRetrievePlace(TestCase):
         response = self.client.get(f'/api/places/{self.place.id}/')
         self.assertEqual(
             set(response.data.keys()),
-            {'id', 'name', 'city', 'country', 'description', 'image', 'created_at'},
+            {'id', 'owner', 'name', 'city', 'country', 'description', 'image', 'created_at'},
         )
 
     def test_retrieve_nonexistent_place_returns_404(self):
@@ -213,9 +227,13 @@ class TestPaginatePlaces(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
         for i in range(15):
             Place.objects.create(
                 name=f'Place {i}', city='City', country='Country', description='Desc',
+                owner=self.user,
             )
 
     def test_list_is_paginated(self):
@@ -252,11 +270,16 @@ class TestUpdatePlace(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
+        self.client.force_authenticate(user=self.user)
         self.place = Place.objects.create(
             name='Café Lumière',
             city='Paris',
             country='France',
             description='A cozy café near the Seine.',
+            owner=self.user,
         )
         self.valid_data = {
             'name': 'Café Lumière Updated',
@@ -351,11 +374,16 @@ class TestDeletePlace(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
+        self.client.force_authenticate(user=self.user)
         self.place = Place.objects.create(
             name='Café Lumière',
             city='Paris',
             country='France',
             description='A cozy café near the Seine.',
+            owner=self.user,
         )
 
     def test_delete_returns_204(self):
@@ -381,6 +409,10 @@ class TestUnicodePlaces(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
+        self.client.force_authenticate(user=self.user)
 
     def test_create_place_with_unicode_name(self):
         data = {
@@ -410,6 +442,10 @@ class TestUniqueConstraint(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
+        self.client.force_authenticate(user=self.user)
         self.data = {
             'name': 'Café Lumière',
             'city': 'Paris',
@@ -434,6 +470,10 @@ class TestDescriptionMaxLength(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
+        self.client.force_authenticate(user=self.user)
         self.base_data = {
             'name': 'Test Place',
             'city': 'London',
@@ -457,6 +497,10 @@ class TestImageUrlMaxLength(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
+        self.client.force_authenticate(user=self.user)
         self.base_data = {
             'name': 'Test Place',
             'city': 'London',
@@ -486,9 +530,12 @@ class TestFilterPlaces(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        Place.objects.create(name='Café Lumière', city='Paris', country='France', description='A café.')
-        Place.objects.create(name='Le Marais', city='Paris', country='France', description='A district.')
-        Place.objects.create(name='Hyde Park', city='London', country='UK', description='A park.')
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
+        Place.objects.create(name='Café Lumière', city='Paris', country='France', description='A café.', owner=self.user)
+        Place.objects.create(name='Le Marais', city='Paris', country='France', description='A district.', owner=self.user)
+        Place.objects.create(name='Hyde Park', city='London', country='UK', description='A park.', owner=self.user)
 
     def test_filter_by_city(self):
         response = self.client.get('/api/places/?city=Paris')
@@ -509,3 +556,91 @@ class TestFilterPlaces(TestCase):
         response = self.client.get('/api/places/?city=Tokyo')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], 0)
+
+
+class TestSearchPlaces(TestCase):
+    # Text search on name and description
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
+        Place.objects.create(
+            name='Café Lumière', city='Paris', country='France',
+            description='A cozy café near the Seine.', owner=self.user,
+        )
+        Place.objects.create(
+            name='Hyde Park', city='London', country='UK',
+            description='A large royal park in central London.', owner=self.user,
+        )
+        Place.objects.create(
+            name='Sunset Lounge', city='Barcelona', country='Spain',
+            description='Rooftop bar with sea views.', owner=self.user,
+        )
+
+    def test_search_by_name(self):
+        response = self.client.get('/api/places/?search=Lumière')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+
+    def test_search_by_description(self):
+        response = self.client.get('/api/places/?search=rooftop')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+
+    def test_search_partial_match(self):
+        response = self.client.get('/api/places/?search=park')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+
+    def test_search_no_match(self):
+        response = self.client.get('/api/places/?search=sushi')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 0)
+
+
+class TestOrderingPlaces(TestCase):
+    # Client-controlled ordering via ?ordering= parameter
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
+        Place.objects.create(
+            name='Beta Place', city='Berlin', country='Germany',
+            description='Second.', owner=self.user,
+        )
+        Place.objects.create(
+            name='Alpha Place', city='Amsterdam', country='Netherlands',
+            description='First.', owner=self.user,
+        )
+        Place.objects.create(
+            name='Gamma Place', city='Copenhagen', country='Denmark',
+            description='Third.', owner=self.user,
+        )
+
+    def test_order_by_name_ascending(self):
+        response = self.client.get('/api/places/?ordering=name')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = [p['name'] for p in response.data['results']]
+        self.assertEqual(names, ['Alpha Place', 'Beta Place', 'Gamma Place'])
+
+    def test_order_by_name_descending(self):
+        response = self.client.get('/api/places/?ordering=-name')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = [p['name'] for p in response.data['results']]
+        self.assertEqual(names, ['Gamma Place', 'Beta Place', 'Alpha Place'])
+
+    def test_order_by_city(self):
+        response = self.client.get('/api/places/?ordering=city')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        cities = [p['city'] for p in response.data['results']]
+        self.assertEqual(cities, ['Amsterdam', 'Berlin', 'Copenhagen'])
+
+    def test_order_by_created_at(self):
+        response = self.client.get('/api/places/?ordering=created_at')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = [p['name'] for p in response.data['results']]
+        self.assertEqual(names, ['Beta Place', 'Alpha Place', 'Gamma Place'])

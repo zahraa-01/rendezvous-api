@@ -148,6 +148,36 @@ class TestJWTLogin(TestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
+class TestTokenRefresh(TestCase):
+    # Tests for POST /api/auth/token/refresh/
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='SecurePass123!',
+        )
+        response = self.client.post('/api/auth/token/', {
+            'username': 'testuser',
+            'password': 'SecurePass123!',
+        }, format='json')
+        self.refresh_token = response.data.get('refresh', '')
+
+    def test_valid_refresh_returns_new_access_token(self):
+        response = self.client.post('/api/auth/token/refresh/', {
+            'refresh': self.refresh_token,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('access', response.data)
+
+    def test_invalid_refresh_token_returns_401(self):
+        response = self.client.post('/api/auth/token/refresh/', {
+            'refresh': 'invalid-token',
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
 class TestAuthenticatedAccess(TestCase):
     # Tests for GET /api/auth/user/ (protected endpoint)
 
@@ -173,3 +203,30 @@ class TestAuthenticatedAccess(TestCase):
     def test_unauthenticated_request_rejected(self):
         response = self.client.get('/api/auth/user/')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class TestUsernameValidation(TestCase):
+    # Whitespace-only usernames should be rejected
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_whitespace_only_username_rejected(self):
+        data = {
+            'username': '   ',
+            'email': 'test@example.com',
+            'password': 'SecurePass123!',
+        }
+        response = self.client.post('/api/auth/register/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('username', response.data)
+
+    def test_empty_username_rejected(self):
+        data = {
+            'username': '',
+            'email': 'test@example.com',
+            'password': 'SecurePass123!',
+        }
+        response = self.client.post('/api/auth/register/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('username', response.data)

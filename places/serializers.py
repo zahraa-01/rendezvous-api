@@ -3,10 +3,12 @@ from places.models import Place
 
 
 class PlaceSerializer(serializers.ModelSerializer):
+    owner = serializers.ReadOnlyField(source='owner.username')
+
     class Meta:
         model = Place
-        fields = ['id', 'name', 'city', 'country', 'description', 'image', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = ['id', 'owner', 'name', 'city', 'country', 'description', 'image', 'created_at']
+        read_only_fields = ['id', 'owner', 'created_at']
 
     def validate_name(self, value):
         if not value.strip():

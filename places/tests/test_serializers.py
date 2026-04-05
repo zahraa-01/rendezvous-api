@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.contrib.auth.models import User
 from places.models import Place
 from places.serializers import PlaceSerializer
 
@@ -6,11 +7,15 @@ from places.serializers import PlaceSerializer
 class TestPlaceSerializer(TestCase):
 
     def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
         self.place = Place.objects.create(
             name='Café Lumière',
             city='Paris',
             country='France',
             description='A cozy café near the Seine.',
+            owner=self.user,
         )
         self.serializer = PlaceSerializer(instance=self.place)
 
@@ -18,7 +23,7 @@ class TestPlaceSerializer(TestCase):
         data = self.serializer.data
         self.assertEqual(
             set(data.keys()),
-            {'id', 'name', 'city', 'country', 'description', 'image', 'created_at'},
+            {'id', 'owner', 'name', 'city', 'country', 'description', 'image', 'created_at'},
         )
 
     def test_serializer_returns_correct_name(self):
