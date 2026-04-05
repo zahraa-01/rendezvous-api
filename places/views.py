@@ -8,6 +8,8 @@ class PlaceListCreateView(generics.ListCreateAPIView):
     queryset = Place.objects.all()
     serializer_class = PlaceSerializer
     filterset_fields = ['city', 'country']
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'city', 'created_at']
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def perform_create(self, serializer):

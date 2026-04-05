@@ -556,3 +556,91 @@ class TestFilterPlaces(TestCase):
         response = self.client.get('/api/places/?city=Tokyo')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], 0)
+
+
+class TestSearchPlaces(TestCase):
+    # Text search on name and description
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
+        Place.objects.create(
+            name='Café Lumière', city='Paris', country='France',
+            description='A cozy café near the Seine.', owner=self.user,
+        )
+        Place.objects.create(
+            name='Hyde Park', city='London', country='UK',
+            description='A large royal park in central London.', owner=self.user,
+        )
+        Place.objects.create(
+            name='Sunset Lounge', city='Barcelona', country='Spain',
+            description='Rooftop bar with sea views.', owner=self.user,
+        )
+
+    def test_search_by_name(self):
+        response = self.client.get('/api/places/?search=Lumière')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+
+    def test_search_by_description(self):
+        response = self.client.get('/api/places/?search=rooftop')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+
+    def test_search_partial_match(self):
+        response = self.client.get('/api/places/?search=park')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+
+    def test_search_no_match(self):
+        response = self.client.get('/api/places/?search=sushi')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 0)
+
+
+class TestOrderingPlaces(TestCase):
+    # Client-controlled ordering via ?ordering= parameter
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='SecurePass123!',
+        )
+        Place.objects.create(
+            name='Beta Place', city='Berlin', country='Germany',
+            description='Second.', owner=self.user,
+        )
+        Place.objects.create(
+            name='Alpha Place', city='Amsterdam', country='Netherlands',
+            description='First.', owner=self.user,
+        )
+        Place.objects.create(
+            name='Gamma Place', city='Copenhagen', country='Denmark',
+            description='Third.', owner=self.user,
+        )
+
+    def test_order_by_name_ascending(self):
+        response = self.client.get('/api/places/?ordering=name')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = [p['name'] for p in response.data['results']]
+        self.assertEqual(names, ['Alpha Place', 'Beta Place', 'Gamma Place'])
+
+    def test_order_by_name_descending(self):
+        response = self.client.get('/api/places/?ordering=-name')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = [p['name'] for p in response.data['results']]
+        self.assertEqual(names, ['Gamma Place', 'Beta Place', 'Alpha Place'])
+
+    def test_order_by_city(self):
+        response = self.client.get('/api/places/?ordering=city')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        cities = [p['city'] for p in response.data['results']]
+        self.assertEqual(cities, ['Amsterdam', 'Berlin', 'Copenhagen'])
+
+    def test_order_by_created_at(self):
+        response = self.client.get('/api/places/?ordering=created_at')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = [p['name'] for p in response.data['results']]
+        self.assertEqual(names, ['Beta Place', 'Alpha Place', 'Gamma Place'])
