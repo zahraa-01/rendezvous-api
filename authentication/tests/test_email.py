@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import TestCase, override_settings
 from django.core import mail
 from rest_framework.test import APIClient
@@ -64,3 +66,8 @@ class TestWelcomeEmail(TestCase):
         response = self.client.post('/api/auth/register/', self.valid_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(len(mail.outbox), 1)
+
+    @patch('authentication.views.EmailMultiAlternatives.send', side_effect=Exception('SMTP down'))
+    def test_registration_succeeds_even_if_email_fails(self, mock_send):
+        response = self.client.post('/api/auth/register/', self.valid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)

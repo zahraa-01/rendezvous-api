@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -6,6 +8,8 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
 from authentication.serializers import RegisterSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -35,7 +39,10 @@ class RegisterView(generics.CreateAPIView):
             to=[user.email],
         )
         email.attach_alternative(html_body, 'text/html')
-        email.send()
+        try:
+            email.send()
+        except Exception:
+            logger.exception('Failed to send welcome email to %s', user.email)
 
 
 class CurrentUserView(APIView):
