@@ -36,16 +36,10 @@ class TestCreatePlace(TestCase):
             {'id', 'owner', 'name', 'city', 'country', 'description', 'image', 'created_at'},
         )
 
-    def test_create_place_with_valid_image_url(self):
-        data = {**self.valid_data, 'image': 'https://res.cloudinary.com/demo/image/upload/sample.jpg'}
-        response = self.client.post('/api/places/', data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Place.objects.first().image, 'https://res.cloudinary.com/demo/image/upload/sample.jpg')
-
-    def test_create_place_image_defaults_to_empty(self):
+    def test_create_place_image_defaults_to_none(self):
         response = self.client.post('/api/places/', self.valid_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['image'], '')
+        self.assertIsNone(response.data['image'])
 
     # Missing required fields
 
@@ -93,20 +87,6 @@ class TestCreatePlace(TestCase):
         response = self.client.post('/api/places/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('country', response.data)
-
-    # Invalid image URL
-
-    def test_create_place_invalid_image_url(self):
-        data = {**self.valid_data, 'image': 'not-a-url'}
-        response = self.client.post('/api/places/', data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('image', response.data)
-
-    def test_create_place_image_missing_scheme(self):
-        data = {**self.valid_data, 'image': 'www.example.com/photo.jpg'}
-        response = self.client.post('/api/places/', data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('image', response.data)
 
     # Field length constraints
 
@@ -337,13 +317,6 @@ class TestUpdatePlace(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('name', response.data)
 
-    def test_patch_invalid_image_url_fails(self):
-        response = self.client.patch(
-            f'/api/places/{self.place.id}/', {'image': 'not-a-url'}, format='json',
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('image', response.data)
-
     def test_patch_nonexistent_place_returns_404(self):
         response = self.client.patch('/api/places/9999/', {'name': 'X'}, format='json')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -490,39 +463,6 @@ class TestDescriptionMaxLength(TestCase):
         response = self.client.post('/api/places/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('description', response.data)
-
-
-class TestImageUrlMaxLength(TestCase):
-    # Cloudinary URLs can exceed the default URLField max_length of 200
-
-    def setUp(self):
-        self.client = APIClient()
-        self.user = User.objects.create_user(
-            username='testuser', email='test@example.com', password='SecurePass123!',
-        )
-        self.client.force_authenticate(user=self.user)
-        self.base_data = {
-            'name': 'Test Place',
-            'city': 'London',
-            'country': 'UK',
-            'description': 'A place.',
-        }
-
-    def test_long_cloudinary_url_accepted(self):
-        long_path = 'a' * 250
-        url = f'https://res.cloudinary.com/demo/image/upload/{long_path}.jpg'
-        data = {**self.base_data, 'image': url}
-        response = self.client.post('/api/places/', data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-    def test_image_url_over_500_chars_rejected(self):
-        long_path = 'a' * 460
-        url = f'https://res.cloudinary.com/demo/image/upload/{long_path}.jpg'
-        self.assertGreater(len(url), 500)
-        data = {**self.base_data, 'image': url}
-        response = self.client.post('/api/places/', data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('image', response.data)
 
 
 class TestFilterPlaces(TestCase):

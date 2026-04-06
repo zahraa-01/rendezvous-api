@@ -11,7 +11,7 @@ class Place(models.Model):
     city = models.CharField(max_length=255)
     country = models.CharField(max_length=255)
     description = models.TextField()
-    image = models.URLField(max_length=500, blank=True, default='')
+    image = models.ImageField(upload_to='places/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

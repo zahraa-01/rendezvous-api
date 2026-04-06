@@ -19,8 +19,8 @@ class TestPlaceModel(TestCase):
         self.assertEqual(self.place.country, 'France')
         self.assertEqual(self.place.description, 'A cozy café near the Seine.')
 
-    def test_image_defaults_to_empty_string(self):
-        self.assertEqual(self.place.image, '')
+    def test_image_defaults_to_none(self):
+        self.assertFalse(self.place.image)
 
     def test_created_at_is_auto_set(self):
         self.assertIsNotNone(self.place.created_at)
