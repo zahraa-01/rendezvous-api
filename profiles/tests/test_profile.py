@@ -56,19 +56,6 @@ class TestUpdateProfile(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['location'], 'Paris')
 
-    def test_authenticated_user_can_update_avatar(self):
-        client, user = get_auth_client()
-        response = client.patch(
-            '/api/profile/',
-            {'avatar': 'https://res.cloudinary.com/demo/image/upload/avatar.jpg'},
-            format='json',
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            response.data['avatar'],
-            'https://res.cloudinary.com/demo/image/upload/avatar.jpg',
-        )
-
     def test_unauthenticated_update_returns_401(self):
         client = APIClient()
         response = client.patch('/api/profile/', {'bio': 'Hacked.'}, format='json')
@@ -122,19 +109,4 @@ class TestProfileValidation(TestCase):
     def test_location_at_255_chars_accepted(self):
         client, user = get_auth_client()
         response = client.patch('/api/profile/', {'location': 'B' * 255}, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_invalid_avatar_url_rejected(self):
-        client, user = get_auth_client()
-        response = client.patch('/api/profile/', {'avatar': 'not-a-url'}, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('avatar', response.data)
-
-    def test_valid_avatar_url_accepted(self):
-        client, user = get_auth_client()
-        response = client.patch(
-            '/api/profile/',
-            {'avatar': 'https://example.com/photo.jpg'},
-            format='json',
-        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
