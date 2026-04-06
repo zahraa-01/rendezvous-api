@@ -2,7 +2,7 @@ from django.test import TestCase, override_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from rest_framework import status
-from testing_utils import get_test_image, get_auth_client
+from testing_utils import get_test_image, get_oversized_test_image, get_auth_client
 
 
 def create_place_data(image=None):
@@ -57,6 +57,14 @@ class TestPlaceImageCreate(TestCase):
         response = client.post('/api/places/', data, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_oversized_image_rejected_on_create(self):
+        client, user = get_auth_client()
+        big_image = get_oversized_test_image()
+        data = create_place_data(image=big_image)
+        response = client.post('/api/places/', data, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('image', response.data)
+
 
 @override_settings(STORAGES={
     'default': {'BACKEND': 'django.core.files.storage.InMemoryStorage'},
@@ -93,3 +101,17 @@ class TestPlaceImageUpdate(TestCase):
             format='multipart',
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_oversized_image_rejected_on_update(self):
+        client, user = get_auth_client()
+        data = create_place_data()
+        create_response = client.post('/api/places/', data, format='multipart')
+        place_id = create_response.data['id']
+        big_image = get_oversized_test_image()
+        response = client.patch(
+            f'/api/places/{place_id}/',
+            {'image': big_image},
+            format='multipart',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('image', response.data)

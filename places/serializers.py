@@ -29,3 +29,8 @@ class PlaceSerializer(serializers.ModelSerializer):
         if len(value) > 2000:
             raise serializers.ValidationError('Ensure this field has no more than 2000 characters.')
         return value
+
+    def validate_image(self, value):
+        if value and value.size > 2 * 1024 * 1024:
+            raise serializers.ValidationError('Image must be under 2MB.')
+        return value

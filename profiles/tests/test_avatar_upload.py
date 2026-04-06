@@ -2,7 +2,7 @@ from django.test import TestCase, override_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from rest_framework import status
-from testing_utils import get_test_image, get_auth_client
+from testing_utils import get_test_image, get_oversized_test_image, get_auth_client
 
 
 @override_settings(STORAGES={
@@ -56,3 +56,14 @@ class TestProfileAvatarUpload(TestCase):
             format='multipart',
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_oversized_avatar_rejected(self):
+        client, user = get_auth_client()
+        big_image = get_oversized_test_image()
+        response = client.patch(
+            '/api/profile/',
+            {'avatar': big_image},
+            format='multipart',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('avatar', response.data)

@@ -18,6 +18,18 @@ def get_test_image(name='test.jpg', size=(100, 100), fmt='JPEG'):
     )
 
 
+def get_oversized_test_image(name='oversized.bmp', size=(1000, 1000)):
+    buffer = BytesIO()
+    image = Image.new('RGB', size, color='blue')
+    image.save(buffer, format='BMP')
+    buffer.seek(0)
+    return SimpleUploadedFile(
+        name,
+        buffer.read(),
+        content_type='image/bmp',
+    )
+
+
 def get_auth_client(username='owner', email='owner@example.com', password='SecurePass123!'):
     client = APIClient()
     user = User.objects.create_user(username=username, email=email, password=password)
