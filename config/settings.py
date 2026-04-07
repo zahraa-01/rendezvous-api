@@ -209,12 +209,12 @@ cloudinary.config(
 
 # Email config — SendGrid SMTP when configured, console fallback otherwise
 
-_sendgrid_key = os.getenv('SENDGRID_API_KEY', '')
-USE_SENDGRID = bool(_sendgrid_key) and not _sendgrid_key.startswith('your_')
+# Force console backend for demo - remove this line after demo
+USE_SENDGRID = False
 
 if USE_SENDGRID:
     EMAIL_BACKEND = 'sendgrid_backend.SendgridBackend'
-    SENDGRID_API_KEY = _sendgrid_key
+    SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY', '')
     SENDGRID_SANDBOX_MODE_IN_DEBUG = False
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
