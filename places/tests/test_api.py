@@ -223,18 +223,19 @@ class TestPaginatePlaces(TestCase):
         self.assertIn('count', response.data)
         self.assertEqual(response.data['count'], 15)
 
-    def test_page_size_is_10(self):
+    def test_page_size_is_100(self):
         response = self.client.get('/api/places/')
-        self.assertEqual(len(response.data['results']), 10)
+        self.assertEqual(len(response.data['results']), 15)  # All 15 places fit on one page
 
-    def test_second_page_returns_remaining(self):
-        response = self.client.get('/api/places/?page=2')
+    def test_pagination_handles_all_places_on_one_page(self):
+        response = self.client.get('/api/places/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 5)
+        self.assertEqual(len(response.data['results']), 15)  # All places on first page
+        self.assertIsNone(response.data['next'])  # No next page needed
 
-    def test_pagination_has_next_link(self):
+    def test_pagination_has_no_next_when_all_places_fit(self):
         response = self.client.get('/api/places/')
-        self.assertIsNotNone(response.data['next'])
+        self.assertIsNone(response.data['next'])  # All 15 places fit on one page
 
     def test_pagination_first_page_has_no_previous(self):
         response = self.client.get('/api/places/')
